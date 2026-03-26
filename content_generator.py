@@ -107,12 +107,12 @@ def summarize_text(text):
 
     return remove_repetition(" ".join(summaries))
 
-def search_google(query, mode="text"):
+def search_google(query, mode="text", language=""):
     if not GOOGLE_API_KEY or not SEARCH_ENGINE_ID or "your-" in GOOGLE_API_KEY:
         return []
         
     if mode == "code":
-        query = query + " example code snippet"
+        query = f"{query} {language} code examples tutorial".strip()
     
     url = "https://www.googleapis.com/customsearch/v1"
     links = []
@@ -268,10 +268,9 @@ def rank_links(links):
         
     scored_links.sort(key=lambda x: x[0], reverse=True)
     return [link for score, link in scored_links]
-
-def generate_content(prompt, topic, mode="text"):
+def generate_content(prompt, topic, mode="text", language=""):
     # Google API pulls up to 20
-    links = search_google(topic, mode)
+    links = search_google(topic, mode, language=language)
     
     if not links:
         links = ["https://example.com/no-search-results"]

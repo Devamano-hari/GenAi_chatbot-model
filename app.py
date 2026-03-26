@@ -30,7 +30,7 @@ def generate():
         prompt = topic
 
     
-    result_dict = generate_content(prompt, topic, mode)
+    result_dict = generate_content(prompt, topic, mode, language=language)
     content = result_dict.get("generated_content", "Error generating content.")
     context = result_dict.get("knowledge_base", "") + " " + result_dict.get("reference_content", "")
     domain_weight = result_dict.get("domain_weight", 1.0)
