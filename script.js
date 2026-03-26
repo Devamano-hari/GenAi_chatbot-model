@@ -207,7 +207,7 @@ function handleSystemSuccess(data) {
             mGrid.appendChild(dr);
         }
         // Final Assessment assignments
-        dom.metricAcc.textContent = data.evaluation.accuracy_percentage !== undefined ? data.evaluation.accuracy_percentage + "%" : "--%";
+        dom.metricAcc.textContent = data.evaluation.accuracy_percentage !== undefined ? data.evaluation.accuracy_percentage : "--";
         dom.metricEval.textContent = data.evaluation.evaluation_score;
     }
     

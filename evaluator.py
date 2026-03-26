@@ -56,7 +56,14 @@ def evaluate_content(text: str, context: str, prompt: str, mode: str = "text", d
 
             # 2. Functional Accuracy (25%) — Python compile() syntax test
             try:
-                compile(text, "<string>", "exec")
+                # Strip Markdown fences (e.g. ```python ... ```) if they exist
+                raw_code = text
+                if "```" in text:
+                    match = re.search(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL)
+                    if match:
+                        raw_code = match.group(1)
+                
+                compile(raw_code, "<string>", "exec")
                 functional_accuracy = 1.0
             except SyntaxError:
                 functional_accuracy = 0.0
