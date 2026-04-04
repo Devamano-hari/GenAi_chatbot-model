@@ -145,7 +145,45 @@ def generate_gpt_content(prompt, context_str, mode):
         "Content-Type": "application/json"
     }
     
-    sys_code = "Provide highly technical Python code and explanation. Ensure your entire output response is strictly 150 to 200 words." if mode == "code" else "You are a senior technical writer generating an extremely practical, educational summary. Using the provided search context, write a highly rephrased and cleaned technical explanation specifically addressing the prompt. If the user asked for specific types, uses, applications, or advantages, focus entirely on delivering those practical facts. If it is a generic concept, explain its core meaning and mechanics.\nCRITICAL STRICT REQUIREMENT: Your final output MUST be exactly between 150 to 200 words. Count your words. Do not include dates, authors, or direct source names."
+    code_prompt = """You are given multiple external source codes (from different links) for the same programming task. Each source may contain unique and useful parts of the overall solution.
+
+Your task is to generate a single, optimized, and executable program by intelligently combining the best parts from all sources.
+
+Instructions:
+Combine Unique Logic
+Extract useful and unique components from each source.
+Merge them into one complete solution without losing important logic.
+Ensure Executability
+The final code must be fully executable.
+Include a proper main function (or equivalent entry point).
+Ensure all functions are correctly defined and called.
+Maintain Consistency
+If function names differ across sources, standardize them.
+Ensure function calls match their definitions (no mismatches).
+Avoid undefined or unused functions.
+Avoid Redundancy
+Do not repeat the same logic multiple times.
+Remove duplicate or unnecessary code.
+Improve Code Quality
+Prefer efficient and clean implementations.
+Maintain proper structure and readability.
+Add Explanation
+Provide a short explanation (5–10 lines maximum).
+Explain the purpose of each major part of the code (e.g., main logic, functions, flow).
+Keep it concise and clear.
+Output Format:
+Final Combined Code (fully executable)
+Short Explanation (5–10 lines, no repetition)
+Important Constraints:
+No redundant logic
+No inconsistent function names
+No partial or incomplete code
+Code must be logically correct and executable
+STRICT DATA RULE: If the prompt explicitly asks for "manual input", you MUST generate code that dynamically parses live user input at runtime. You MUST NOT hardcode arrays, lists, or tuples in this scenario!"""
+
+    text_prompt = "You are a senior technical writer generating an extremely practical, educational summary. Using the provided search context, write a highly rephrased and cleaned technical explanation specifically addressing the prompt. If the user asked for specific types, uses, applications, or advantages, focus entirely on delivering those practical facts. If it is a generic concept, explain its core meaning and mechanics.\nCRITICAL STRICT REQUIREMENT: Your final output MUST be exactly between 150 to 200 words. Count your words. Do not include dates, authors, or direct source names."
+    
+    sys_code = code_prompt if mode == "code" else text_prompt
 
     payload = {
         "model": model,
@@ -204,34 +242,36 @@ def evaluate_domain_tier(url, mode="text"):
     url_lower = url.lower()
     
     if mode == "code":
-        tier_1 = [r'(github|stackoverflow)\.com', r'(docs\.python|mozilla)\.org', r'microsoft\.com']
-        tier_2 = [r'(geeksforgeeks)\.org', r'(w3schools|hackerrank|leetcode)\.com']
+        tier_1 = [
+            r'docs\.python\.org', r'devdocs\.io', r'developer\.mozilla\.org', r'cppreference\.com', r'docs\.oracle\.com',
+            r'numpy\.org/doc', r'pandas\.pydata\.org/docs', r'docs\.scipy\.org', r'pkg\.go\.dev', r'docs\.rs',
+            r'(github|gitlab)\.com', r'bitbucket\.org', r'learn\.microsoft\.com'
+        ]
+        tier_2 = [
+            r'realpython\.com', r'programiz\.com', r'geeksforgeeks\.org', r'cs\.cmu\.edu', r'mit\.edu',
+            r'stackoverflow\.com', r'stackexchange\.com', r'freecodecamp\.org', r'leetcode\.com'
+        ]
         
         for p in tier_1:
             if re.search(p, url_lower): return 1, 1.0
         for p in tier_2:
             if re.search(p, url_lower): return 2, 0.8
-        return 3, 0.5
+        return 3, 0.6
         
     tier_1_patterns = [
-        r'(wikipedia|arxiv)\.org',                 # Knowledge bases (Top priority)
-        r'\.(gov|edu|mil|ac)(\.[a-z]{2,3})?',   # Government / Academic institutions
-        r'(gov|ac)\.in',                           # India gov/ac
-        r'pubmed\.ncbi\.nlm\.nih\.gov',            # Medical research
-        r'(nature|ieee|acm|springer)\.(com|org)',  # Academic journals
-        r'(britannica|who|un)\.(com|org)'          # Trusted organizations
+        r'(springer|ieee|acm)\.(org|com)',                 
+        r'\.(gov|edu)(\.[a-z]{2,3})?',   
+        r'wikipedia\.org',
+        r'(international|government)'
     ]
     tier_2_patterns = [
-        r'(bbc|reuters|apnews|nytimes|wsj)',        # Journalism
-        r'(github|gitlab)\.com',                    # Code repositories
-        r'(khanacademy|jstor|merriam-webster)',      # Educational / reference
-        r'(co|org)\.in'                             # India reputable sites
+        r'(geeksforgeeks|khanacademy)\.org',
+        r'tutorialspoint\.com',
+        r'(ibm|google)\.com',
+        r'\.org',
+        r'course'
     ]
-    tier_3_patterns = [
-        r'\.io',                                    # Tech/startups
-        r'(forbes|bloomberg|guardian|cnn)',          # Commercial media
-        r'(wired|techcrunch|zdnet)\.com'            # Tech/business media
-    ]
+    tier_3_patterns = []
     
     for p in tier_1_patterns:
         if re.search(p, url_lower): return 1, 1.0
@@ -293,11 +333,11 @@ def generate_content(prompt, topic, mode="text", language=""):
             # If the LLM determines this link is just ads/promotions/garbage, we skip the link entirely
             if nugget.upper() != "REJECT" and not nugget.upper().startswith("REJECT"):
                 technical_kb_parts.append(nugget)
-                successful_links.append(link)
                 
                 # Register tier for final accuracy matrix calc
                 tier, weight = evaluate_domain_tier(link, mode)
                 used_tiers.append(tier)
+                successful_links.append({"url": link, "tier": tier})
             
     # Calculate the EXACT Combined Fractional Weighted Average of ALL sources
     if used_tiers:

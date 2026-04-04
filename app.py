@@ -4,6 +4,10 @@ from prompt_validator import validate_prompt
 from content_generator import generate_content
 from evaluator import evaluate_content
 import os
+import time
+
+CACHE = {}
+CACHE_TTL = 7200  # 2 hours
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
@@ -23,6 +27,12 @@ def generate():
     topic = data.get("topic", "")
     language = data.get("language", "")
 
+    cache_key = f"{mode}_{topic}_{language}".lower().strip()
+    if cache_key in CACHE:
+        cached_entry = CACHE[cache_key]
+        if time.time() - cached_entry["timestamp"] < CACHE_TTL:
+            return jsonify(cached_entry["response"])
+
     # If the user selects Source Code, embed the requested language cleanly into the prompt context
     if mode == "code" and language:
         prompt = f"Provide {language} programming instructions and write code demonstrating: {topic}"
@@ -37,7 +47,7 @@ def generate():
     
     evaluation = evaluate_content(content, context, prompt, mode, domain_weight)
 
-    return jsonify({
+    response_data = {
         "reference_source": result_dict.get("reference_source"),
         "reference_content": result_dict.get("reference_content"),
         "external_sources": result_dict.get("external_sources"),
@@ -46,7 +56,14 @@ def generate():
         "evaluation": evaluation,
         "tier_counts": result_dict.get("tier_counts", {}),
         "domain_weight": domain_weight
-    })
+    }
+    
+    CACHE[cache_key] = {
+        "timestamp": time.time(),
+        "response": response_data
+    }
+
+    return jsonify(response_data)
 
 if __name__ == "__main__":
     app.run(debug=True)

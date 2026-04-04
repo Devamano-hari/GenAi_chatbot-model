@@ -98,10 +98,25 @@ dom.generateBtn.addEventListener('click', async () => {
     }
 });
 
+function formatMarkdown(text) {
+    if (!text) return "";
+    let formatted = text
+        // Code Blocks
+        .replace(/```[a-z]*\s*([\s\S]*?)```/g, '<pre style="background:#1e293b; color:#f8fafc; padding:15px; border-radius:6px; overflow-x:auto; margin: 10px 0; font-family: monospace; font-size: 0.9em;"><code>$1</code></pre>')
+        // Inline bold
+        .replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>')
+        // Inline string code tokens
+        .replace(/`([^`]+)`/g, '<code style="background:#e2e8f0; padding:2px 4px; border-radius:4px; font-size:0.9em; color:#ef4444;">$1</code>');
+        
+    // Double newlines convert to paragraphs, singles ignored by html or converted
+    formatted = formatted.replace(/\n\n/g, '<br><br>');
+    return formatted;
+}
+
 function resetUIState() {
     dom.reportContainer.style.display = 'none';
     dom.loadingContainer.style.display = 'flex';
-    dom.loadingText.textContent = 'Crawling knowledge base and running semantic evaluation...';
+    dom.loadingText.textContent = 'Displaying Content With Evaluation Metrics And Accuracy...';
     
     // Clear old data
     dom.extSources.innerHTML = '';
@@ -114,10 +129,12 @@ function resetUIState() {
     dom.metricComp.textContent = '0';
     dom.metricAcc.textContent = '0';
     
-    const dLabel = document.getElementById('domain-trust-label');
-    const dScore = document.getElementById('domain-trust-score');
-    if(dLabel) dLabel.textContent = "Source Trust Score";
-    if(dScore) dScore.textContent = "--";
+    // Explicitly purge legacy data containers
+    const mGrid = document.querySelector('.metrics-grid');
+    if(mGrid) mGrid.innerHTML = '';
+    
+    const testContainer = document.getElementById('dynamic-tests-container');
+    if(testContainer) testContainer.style.display = 'none';
     
     const t1 = document.getElementById('t1-cnt');
     const t2 = document.getElementById('t2-cnt');
@@ -142,11 +159,15 @@ function handleSystemSuccess(data) {
 
     // Populate Report Fields
     if (data.external_sources && data.external_sources.length > 0) {
-        data.external_sources.forEach((link, idx) => {
+        data.external_sources.forEach((item, idx) => {
             const a = document.createElement('a');
-            a.href = link;
+            
+            const linkUrl = typeof item === 'string' ? item : item.url;
+            
+            a.href = linkUrl;
             a.target = '_blank';
-            a.textContent = `${idx + 1}. ${link}`;
+            a.textContent = `${idx + 1}. ${linkUrl}`; 
+            
             dom.extSources.appendChild(a);
         });
     } else {
@@ -158,12 +179,22 @@ function handleSystemSuccess(data) {
     const currentMode = getSelectedMode();
     const knowledgeLabel = dom.knowledgeBase.previousElementSibling;
     const generatedLabel = dom.generatedContent.previousElementSibling;
+    const descT1 = document.getElementById('desc-tier1');
+    const descT2 = document.getElementById('desc-tier2');
+    const descT3 = document.getElementById('desc-tier3');
+    
     if (currentMode === 'code') {
         if (knowledgeLabel) knowledgeLabel.textContent = "💻 EXTRACTED SOURCE CODE";
         if (generatedLabel) generatedLabel.textContent = "🤖 GENERATED CODE";
+        if (descT1) descT1.innerHTML = "<strong>Tier 1:</strong> Certified official docs and authoritative repositories. Includes developer.mozilla.org, docs.python.org, cppreference.com, GitHub, etc. Weight: 1.0.";
+        if (descT2) descT2.innerHTML = "<strong>Tier 2:</strong> Trusted community and educational domains. Includes StackOverflow, GeeksforGeeks, LeetCode, etc. Weight: 0.8.";
+        if (descT3) descT3.innerHTML = "<strong>Tier 3:</strong> General commercial blogs and unverified portals. Includes Medium, dev.to, W3Schools, etc. Weight: 0.6.";
     } else {
         if (knowledgeLabel) knowledgeLabel.textContent = "🧠 EXTRACTED KNOWLEDGE BASE";
         if (generatedLabel) generatedLabel.textContent = "🤖 GENERATED CONTENT";
+        if (descT1) descT1.innerHTML = "<strong>Tier 1:</strong> Top-level authoritative sources. This includes verified academic institution platforms (.edu), strict scientific journals, and globally recognized encyclopedias. These pristine links carry an absolute 100% trust weight inside the engine.";
+        if (descT2) descT2.innerHTML = "<strong>Tier 2:</strong> Highly reliable secondary sources. This includes major international journalism publishers (Reuters, BBC), global open-source code repositories (GitHub), and established encyclopedic organizations. These reputable links natively carry an 80% trust scalar.";
+        if (descT3) descT3.innerHTML = "<strong>Tier 3:</strong> Commercial media and corporate blogs. This includes startup tech tutorials, localized news networks, and standard independent journalism. These links structurally carry a 50% trust reduction to automatically prevent generalized media hallucination bias.";
     }
 
     // Metrics
@@ -172,13 +203,13 @@ function handleSystemSuccess(data) {
         mGrid.innerHTML = '';
         
         const labelMap = {
-            // Code Mode — 5 metrics
+            // Code Mode — Standard Metrics
             "source_trust":            "Source Trust Score",
             "functional_accuracy":     "Functional Accuracy (Python)",
             "semantic_similarity":     "Semantic Similarity (CodeBERT)",
             "coverage_score":          "Coverage Score",
             "structural_similarity":   "Structural Similarity (BLEU)",
-            // Text Mode — 6 metrics
+            // Text Mode — Original 6 metrics
             "similarity":  "Semantic Similarity Score",
             "nli":         "NLI Entailment Score",
             "relevance":   "Semantic Alignment (Relevance)",
@@ -188,24 +219,14 @@ function handleSystemSuccess(data) {
         };
 
         for (const [key, value] of Object.entries(data.evaluation.metrics)) {
+            if (key === "_test_details" || key === "_test_passed" || key === "_test_total") continue;
+            
             const row = document.createElement('div');
             row.className = 'metric-row';
             row.innerHTML = `<span>${labelMap[key] || key}</span><span>: <span style="font-weight: bold;">${value}</span></span>`;
             mGrid.appendChild(row);
         }
         
-        if (data.domain_weight !== undefined) {
-            let activeTiers = [];
-            if(data.tier_counts && data.tier_counts.tier1 > 0) activeTiers.push("Tier 1");
-            if(data.tier_counts && data.tier_counts.tier2 > 0) activeTiers.push("Tier 2");
-            if(data.tier_counts && data.tier_counts.tier3 > 0) activeTiers.push("Tier 3");
-            const activeStr = activeTiers.length > 0 ? ` (${activeTiers.join(', ')})` : "";
-            
-            const dr = document.createElement('div');
-            dr.className = 'metric-row';
-            dr.innerHTML = `<span id="domain-trust-label" style="font-weight: 600;">Source Trust Score${activeStr}</span><span style="font-weight: bold; color: var(--clr-primary);">: <span id="domain-trust-score">${data.domain_weight.toFixed(2)}</span></span>`;
-            mGrid.appendChild(dr);
-        }
         // Final Assessment assignments
         dom.metricAcc.textContent = data.evaluation.accuracy_percentage !== undefined ? data.evaluation.accuracy_percentage : "--";
         dom.metricEval.textContent = data.evaluation.evaluation_score;
@@ -218,9 +239,48 @@ function handleSystemSuccess(data) {
         document.getElementById('t3-cnt').textContent = data.tier_counts.tier3;
     }
 
-    // Typewriter effect for Generated Content
-    typewriterEffect(data.generated_content || "Error generating content", dom.generatedContent, () => {
-    });
+    // Instantly format via RegEx avoiding raw text content bleeds
+    dom.generatedContent.innerHTML = formatMarkdown(data.generated_content || "Error generating content");
+    
+    // Dynamic AST Tests Mapping
+    const testContainer = document.getElementById('dynamic-tests-container');
+    const testList = document.getElementById('dynamic-tests-list');
+    
+    if (data.evaluation && data.evaluation.metrics && data.evaluation.metrics._test_total !== undefined && currentMode === "code") {
+        const tests = data.evaluation.metrics._test_details || [];
+        const passedCount = data.evaluation.metrics._test_passed || 0;
+        const totalCount = data.evaluation.metrics._test_total || 0;
+        
+        if (totalCount > 0) {
+            testContainer.style.display = 'block';
+            const failedCount = totalCount - passedCount;
+            
+            testList.innerHTML = `<div style="font-family: monospace; font-size: 1.1em; background: #0c0a09; padding: 12px; border-radius: 6px; margin-bottom: 8px; line-height: 1.6;">
+                <div style="color: #60a5fa; font-weight: bold;">total no.of cases = ${totalCount}</div>
+                <div style="color: #22c55e; font-weight: bold;">passed ${passedCount}/${totalCount}</div>
+                <div style="color: #ef4444; font-weight: bold;">failed ${failedCount}/${totalCount}</div>
+            </div>`;
+            
+            tests.forEach((row, idx) => {
+                const badgeHtml = row.passed ? 
+                    `<span style="color:#16a34a; font-weight:900;">[PASS]</span>` : 
+                    `<span style="color:#dc2626; font-weight:900;">[FAIL]</span>`;
+                const div = document.createElement('div');
+                div.style.cssText = "padding: 6px 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; display: flex; gap: 10px; word-break: break-all; align-items: start;";
+                div.innerHTML = `<div style="flex-shrink:0;">${badgeHtml}</div>
+                                 <div style="flex-grow:1; display:flex; flex-direction:column; gap:4px;">
+                                    <div><strong style="color:#64748b;">In:</strong> ${row.input}</div>
+                                    <div><strong style="color:#64748b;">Exp:</strong> ${row.expected}</div>
+                                    <div><strong style="color:#64748b;">Got:</strong> ${row.got}</div>
+                                 </div>`;
+                testList.appendChild(div);
+            });
+        } else {
+            if(testContainer) testContainer.style.display = 'none';
+        }
+    } else {
+        if(testContainer) testContainer.style.display = 'none';
+    }
 }
 
 // Copy button handler

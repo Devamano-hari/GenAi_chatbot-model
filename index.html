@@ -80,7 +80,7 @@
         <!-- Loading State container -->
         <section id="loading-container" style="display:none;" class="loading-state">
             <div class="spinner"></div>
-            <p id="loading-text">Crawling Reference Sources...</p>
+            <p id="loading-text">Displaying Content With Evaluation Metrics And Accuracy...</p>
         </section>
 
         <!-- Two-Column Report Output -->
@@ -101,8 +101,16 @@
             <!-- Right Column: Generation & Metrics -->
             <div class="report-col-right">
                 <div class="report-section">
-                    <div class="report-section-title">🤖 GENERATED CONTENT</div>
-                    <div id="generated-content" class="report-text highlight-box"></div>
+                    <div class="result-box" style="padding: 0;">
+                        <h3 class="section-title">🤖 GENERATED <span id="gen-label">CONTENT</span></h3>
+                        <div id="generated-content" class="report-text" style="padding: 15px; border-radius: 4px; border-top-left-radius: 0; border-top-right-radius: 0;"></div>
+                        
+                        <!-- Dynamic AST Tests Wrapper -->
+                        <div id="dynamic-tests-container" style="display: none; padding: 15px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.85em; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Dynamic Code Validation Tests</h4>
+                            <div id="dynamic-tests-list" style="display: flex; flex-direction: column; gap: 6px; font-family: monospace; font-size: 0.85em;"></div>
+                        </div>
+                    </div>
                     <div style="margin-top: 10px;">
                         <button id="copyBtn" class="copy-btn">📋 <span id="copyLabel">Copy Output</span></button>
                     </div>
@@ -120,21 +128,37 @@
                         <div class="metric-row"><span id="domain-trust-label" style="font-weight: 600;">Source Trust Score</span><span style="font-weight: bold; color: var(--clr-primary);">: <span id="domain-trust-score">--</span></span></div>
                     </div>
 
-                    <details class="unified-tiers" style="margin-top: 15px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <summary style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-weight: 600; color: #334155; cursor: pointer; list-style: none; outline: none;">
-                            <div style="display: flex; gap: 30px;">
-                                <span>Tier 1: <span id="t1-cnt" style="color: #3b82f6; font-weight: bold;">0</span></span>
-                                <span>Tier 2: <span id="t2-cnt" style="color: #3b82f6; font-weight: bold;">0</span></span>
-                                <span>Tier 3: <span id="t3-cnt" style="color: #3b82f6; font-weight: bold;">0</span></span>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <details style="border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <summary style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-weight: 600; color: #334155; cursor: pointer; list-style: none; outline: none;">
+                                <span>Tier 1: <span id="t1-cnt" style="color: #3b82f6; font-weight: bold; margin-left:4px;">0</span></span>
+                                <span style="color: #64748b; font-size: 0.8em;">▼</span>
+                            </summary>
+                            <div id="desc-tier1" style="padding: 15px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.85em; color: #64748b; line-height: 1.6; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;">
+                                <strong>Tier 1:</strong> Top-level authoritative sources. This includes verified academic institution platforms (.edu), strict scientific journals, and globally recognized encyclopedias. These pristine links carry an absolute 100% trust weight inside the engine.
                             </div>
-                            <span style="color: #64748b; font-size: 0.8em;">▼</span>
-                        </summary>
-                        <div style="padding: 15px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.85em; color: #64748b; line-height: 1.6; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; display: flex; flex-direction: column; gap: 10px;">
-                            <div><strong>Tier 1:</strong> Top-level authoritative sources. This includes verified academic institution platforms (.edu), strict scientific journals, and globally recognized encyclopedias. These pristine links carry an absolute 100% trust weight inside the engine.</div>
-                            <div><strong>Tier 2:</strong> Highly reliable secondary sources. This includes major international journalism publishers (Reuters, BBC), global open-source code repositories (GitHub), and established encyclopedic organizations. These reputable links natively carry an 80% trust scalar.</div>
-                            <div><strong>Tier 3:</strong> Commercial media and corporate blogs. This includes startup tech tutorials, localized news networks, and standard independent journalism. These links structurally carry a 50% trust reduction to automatically prevent generalized media hallucination bias.</div>
-                        </div>
-                    </details>
+                        </details>
+                        
+                        <details style="border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <summary style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-weight: 600; color: #334155; cursor: pointer; list-style: none; outline: none;">
+                                <span>Tier 2: <span id="t2-cnt" style="color: #3b82f6; font-weight: bold; margin-left:4px;">0</span></span>
+                                <span style="color: #64748b; font-size: 0.8em;">▼</span>
+                            </summary>
+                            <div id="desc-tier2" style="padding: 15px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.85em; color: #64748b; line-height: 1.6; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;">
+                                <strong>Tier 2:</strong> Highly reliable secondary sources. This includes major international journalism publishers (Reuters, BBC), global open-source code repositories (GitHub), and established encyclopedic organizations. These reputable links natively carry an 80% trust scalar.
+                            </div>
+                        </details>
+                        
+                        <details style="border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <summary style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-weight: 600; color: #334155; cursor: pointer; list-style: none; outline: none;">
+                                <span>Tier 3: <span id="t3-cnt" style="color: #3b82f6; font-weight: bold; margin-left:4px;">0</span></span>
+                                <span style="color: #64748b; font-size: 0.8em;">▼</span>
+                            </summary>
+                            <div id="desc-tier3" style="padding: 15px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.85em; color: #64748b; line-height: 1.6; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;">
+                                <strong>Tier 3:</strong> Commercial media and corporate blogs. This includes startup tech tutorials, localized news networks, and standard independent journalism. These links structurally carry a 50% trust reduction to automatically prevent generalized media hallucination bias.
+                            </div>
+                        </details>
+                    </div>
                     
                 </div>
 
