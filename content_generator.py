@@ -11,11 +11,11 @@ import traceback
 
 load_dotenv()
 
-# APIMart Integration for Source Code Mode fallback
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.apimart.ai/v1")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+# Load API credentials — use `or` fallback so empty/None secrets don't break the URL
+OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY") or ""
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL") or "https://api.apimart.ai/v1"
+GOOGLE_API_KEY  = os.getenv("GOOGLE_API_KEY") or ""
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID") or ""
 
 # Try loading BART summarizer natively
 try:
