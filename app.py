@@ -7,7 +7,7 @@ import os
 import time
 
 CACHE = {}
-CACHE_TTL = 7200  # 2 hours
+CACHE_TTL = 0  # Disabled cache to prevent stale testing data during heuristic validation
 
 app = Flask(__name__, static_folder='.')
 CORS(app)

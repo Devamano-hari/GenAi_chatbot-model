@@ -179,7 +179,8 @@ No redundant logic
 No inconsistent function names
 No partial or incomplete code
 Code must be logically correct and executable
-STRICT DATA RULE: If the prompt explicitly asks for "manual input", you MUST generate code that dynamically parses live user input at runtime. You MUST NOT hardcode arrays, lists, or tuples in this scenario!"""
+STRICT DATA RULE: If the prompt explicitly asks for "manual input", you MUST generate code that dynamically parses live user input at runtime. You MUST NOT hardcode arrays, lists, or tuples in this scenario!
+TRAVERSAL RULE: If generating algorithms like DFS, BFS, searching, or sorting, your function MUST return the final sequence or visited nodes as a structured LIST/ARRAY instead of merely printing them. This is critical for automated validation pipelines."""
 
     text_prompt = "You are a senior technical writer generating an extremely practical, educational summary. Using the provided search context, write a highly rephrased and cleaned technical explanation specifically addressing the prompt. If the user asked for specific types, uses, applications, or advantages, focus entirely on delivering those practical facts. If it is a generic concept, explain its core meaning and mechanics.\nCRITICAL STRICT REQUIREMENT: Your final output MUST be exactly between 150 to 200 words. Count your words. Do not include dates, authors, or direct source names."
     
@@ -191,7 +192,7 @@ STRICT DATA RULE: If the prompt explicitly asks for "manual input", you MUST gen
             {"role": "system", "content": sys_code},
             {"role": "user", "content": f"Task: {prompt}\n\nSearch Context:\n{context_str}"}
         ],
-        "max_tokens": 400,
+        "max_tokens": 2000,
         "temperature": 0.7,
         "stream": False
     }
@@ -224,7 +225,7 @@ def extract_technical_nugget(topic, text_chunk, mode="text"):
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": text_chunk[:3000]}
         ],
-        "max_tokens": 150,
+        "max_tokens": 800,
         "temperature": 0.2,
         "stream": False
     }

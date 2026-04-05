@@ -401,6 +401,35 @@ details.unified-tiers summary::marker {
     color: #1a202c;
 }
 
+.tier-explanation p {
+    margin: 4px 0 0;
+    color: #4b5563;
+}
+
+/* Ensure code blocks inside generated content retain monospace and structural styling */
+.report-text pre {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace !important;
+    margin: 15px 0;
+}
+.report-text code {
+    font-family: 'Courier New', Courier, monospace !important;
+    background-color: #f1f5f9;
+    color: #ef4444;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+.report-text pre code {
+    padding: 0;
+    color: inherit !important;
+    background-color: transparent !important;
+}
+
 .loading-state {
     display: flex;
     flex-direction: column;
