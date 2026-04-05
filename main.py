@@ -11,7 +11,8 @@ def run():
     if mode == "text":
         level = input("Enter level (basics/advanced): ")
     elif mode == "code":
-        language = input("Enter language (e.g. Python, JavaScript): ")
+        language = "Python"
+        print("Language: Python")
 
     prompt = validate_prompt(mode, action, topic, level, language)
     result_dict = generate_content(prompt, topic, mode)
