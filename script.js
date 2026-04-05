@@ -219,7 +219,6 @@ function handleSystemSuccess(data) {
         };
 
         for (const [key, value] of Object.entries(data.evaluation.metrics)) {
-            if (key === "_test_details" || key === "_test_passed" || key === "_test_total") continue;
             
             const row = document.createElement('div');
             row.className = 'metric-row';
@@ -239,49 +238,10 @@ function handleSystemSuccess(data) {
         document.getElementById('t3-cnt').textContent = data.tier_counts.tier3;
     }
 
-    // Instantly format via RegEx avoiding raw text content bleeds
+    // Render generated content
     dom.generatedContent.innerHTML = formatMarkdown(data.generated_content || "Error generating content");
-    
-    // Dynamic AST Tests Mapping
-    const testContainer = document.getElementById('dynamic-tests-container');
-    const testList = document.getElementById('dynamic-tests-list');
-    
-    if (data.evaluation && data.evaluation.metrics && data.evaluation.metrics._test_total !== undefined && currentMode === "code") {
-        const tests = data.evaluation.metrics._test_details || [];
-        const passedCount = data.evaluation.metrics._test_passed || 0;
-        const totalCount = data.evaluation.metrics._test_total || 0;
-        
-        if (totalCount > 0) {
-            testContainer.style.display = 'block';
-            const failedCount = totalCount - passedCount;
-            
-            testList.innerHTML = `<div style="font-family: monospace; font-size: 1.1em; background: #0c0a09; padding: 12px; border-radius: 6px; margin-bottom: 8px; line-height: 1.6;">
-                <div style="color: #60a5fa; font-weight: bold;">total no.of cases = ${totalCount}</div>
-                <div style="color: #22c55e; font-weight: bold;">passed ${passedCount}/${totalCount}</div>
-                <div style="color: #ef4444; font-weight: bold;">failed ${failedCount}/${totalCount}</div>
-            </div>`;
-            
-            tests.forEach((row, idx) => {
-                const badgeHtml = row.passed ? 
-                    `<span style="color:#16a34a; font-weight:900;">[PASS]</span>` : 
-                    `<span style="color:#dc2626; font-weight:900;">[FAIL]</span>`;
-                const div = document.createElement('div');
-                div.style.cssText = "padding: 6px 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; display: flex; gap: 10px; word-break: break-all; align-items: start;";
-                div.innerHTML = `<div style="flex-shrink:0;">${badgeHtml}</div>
-                                 <div style="flex-grow:1; display:flex; flex-direction:column; gap:4px;">
-                                    <div><strong style="color:#64748b;">In:</strong> ${row.input}</div>
-                                    <div><strong style="color:#64748b;">Exp:</strong> ${row.expected}</div>
-                                    <div><strong style="color:#64748b;">Got:</strong> ${row.got}</div>
-                                 </div>`;
-                testList.appendChild(div);
-            });
-        } else {
-            if(testContainer) testContainer.style.display = 'none';
-        }
-    } else {
-        if(testContainer) testContainer.style.display = 'none';
-    }
 }
+
 
 // Copy button handler
 dom.copyBtn.addEventListener('click', () => {

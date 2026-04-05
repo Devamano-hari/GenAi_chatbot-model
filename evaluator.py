@@ -1,8 +1,5 @@
 import re
 import traceback
-import ast
-import textwrap
-import random
 
 try:
     import torch
@@ -90,9 +87,6 @@ def evaluate_content(text: str, context: str, prompt: str, mode: str = "text", d
             bigram_total  = max(len(bigrams_ref), 1)
             structural_sim = normalize(0.5 * unigram_match / unigram_total + 0.5 * bigram_match / bigram_total)
 
-            # Always run dynamic test results, even if manual input code is generated
-            dynamic_test_results = run_dynamic_tests(raw_code, prompt)
-            
             # Final formula: 0.30×STS + 0.25×FA + 0.20×SS + 0.15×COV + 0.10×STRUCT
             base_score = (
                 0.30 * source_trust +
@@ -105,27 +99,15 @@ def evaluate_content(text: str, context: str, prompt: str, mode: str = "text", d
             # Hard penalty: Python syntax failure
             if functional_accuracy == 0.0:
                 base_score *= 0.5
-                
-            # Blend Dynamic AST Tests ratio into the core Accuracy heuristic
-            t_pass = dynamic_test_results.get("passed", 0)
-            t_tot  = dynamic_test_results.get("total", 0)
-            if t_tot > 0:
-                test_ratio = t_pass / t_tot
-                base_score = (base_score * 0.5) + (test_ratio * 0.5)
 
             final_score = normalize(base_score)
 
             metrics_out = {
-                # Original heuristic metrics ONLY
                 "source_trust":           round(source_trust, 4),
                 "functional_accuracy":    round(functional_accuracy, 4),
                 "semantic_similarity":    round(sem_sim, 4),
                 "coverage_score":         round(coverage, 4),
                 "structural_similarity":  round(structural_sim, 4),
-                # Hidden testing payloads for UI rendering (excluded from grid)
-                "_test_details":          dynamic_test_results.get("details", []),
-                "_test_passed":           dynamic_test_results.get("passed", 0),
-                "_test_total":            dynamic_test_results.get("total", 0)
             }
 
         # ══════════════════════════════════════════════════════════════════
@@ -229,197 +211,3 @@ def evaluate_content(text: str, context: str, prompt: str, mode: str = "text", d
             "domain_weight": domain_weight
         }
 
-# ─────────────────────────────────────────────────────────────────
-# 1. Detect problem type
-# ─────────────────────────────────────────────────────────────────
-def detect_problem_type(prompt: str) -> str:
-    p = prompt.lower()
-    if any(k in p for k in ["sort", "order", "arrange", "bubble sort", "merge sort", "quick sort"]):
-        return "sorting"
-    elif any(k in p for k in ["binary search", "linear search", "find element"]):
-        return "searching"
-    elif any(k in p for k in ["dfs", "depth first", "bfs", "breadth first", "graph"]):
-        return "graph_traversal"
-    elif any(k in p for k in ["knn", "kmeans", "svm", "naive bayes", "ml", "classification"]):
-        return "ml"
-    elif "regression" in p:
-        return "regression"
-    elif "factorial" in p:
-        return "factorial"
-    elif "fibonacci" in p or "fib" in p:
-        return "fibonacci"
-    elif any(k in p for k in ["palindrome", "reverse string"]):
-        return "palindrome"
-    elif any(k in p for k in ["prime", "is prime", "check prime"]):
-        return "prime"
-    elif any(k in p for k in ["sum", "total", "add"]):
-        return "sum"
-    else:
-        return "generic"
-
-# ─────────────────────────────────────────────────────────────────
-# 2. Generate dynamic test cases (randomized)
-# ─────────────────────────────────────────────────────────────────
-def generate_test_cases(prompt: str, num_cases=10) -> list:
-    problem_type = detect_problem_type(prompt)
-    test_cases = []
-
-    for _ in range(num_cases):
-        if problem_type == "sorting":
-            n = random.choice([0, 3, 10, 50])
-            arr = [random.randint(-1000, 1000) for _ in range(n)]
-            test_cases.append((arr, sorted(arr)))
-        elif problem_type == "searching":
-            n = random.randint(0, 50)
-            arr = sorted(random.sample(range(-100, 100), n))
-            target = random.choice(arr) if arr and random.random() > 0.5 else 9999
-            expected = arr.index(target) if target in arr else -1
-            test_cases.append(((arr, target), expected))
-        elif problem_type == "graph_traversal":
-            if random.random() > 0.5:
-                graph = {
-                    'A': ['B', 'C'], 'B': ['A', 'D', 'E'], 
-                    'C': ['A', 'F'], 'D': ['B'], 'E': ['B', 'F'], 'F': ['C', 'E']
-                }
-                expected = ['A', 'B', 'C', 'D', 'E', 'F']
-                test_cases.append(((graph, 'A'), expected))
-            else:
-                graph = {
-                    1: [2, 3], 2: [1, 4, 5], 
-                    3: [1, 6], 4: [2], 5: [2, 6], 6: [3, 5]
-                }
-                expected = [1, 2, 3, 4, 5, 6]
-                test_cases.append(((graph, 1), expected))
-        elif problem_type == "ml":
-            test_cases.append((([[1],[2],[3]], [0,1,0], [[4]]), 0.7)) 
-        elif problem_type == "regression":
-            test_cases.append((([[1],[2],[3]], [1,2,3], [[4]]), 4.0))
-        elif problem_type == "factorial":
-            n = random.randint(0, 10)
-            expected = 1
-            for i in range(1, n+1):
-                expected *= i
-            test_cases.append((n, expected))
-        elif problem_type == "fibonacci":
-            n = random.randint(0, 20)
-            a, b = 0, 1
-            for _ in range(n):
-                a, b = b, a + b
-            test_cases.append((n, a))
-        else:
-            test_cases.append((1, None))
-    return test_cases
-
-# ─────────────────────────────────────────────────────────────────
-# 3. Extract function name via AST
-# ─────────────────────────────────────────────────────────────────
-def extract_function_name(code: str):
-    try:
-        tree = ast.parse(textwrap.dedent(code))
-        # 1. Search for algorithm-specific top-level functions natively
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if any(x in node.name.lower() for x in ['dfs', 'bfs', 'search', 'solve', 'predict', 'train']):
-                    return node.name
-        # 2. Search for explicit 'main' test wrappers
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name == 'main':
-                    return node.name
-        # 3. Fallback to any top level function
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if not node.name.startswith("__"):
-                    return node.name
-    except SyntaxError:
-        pass
-    match = re.search(r'def\s+(\w+)\s*\(', code)
-    return match.group(1) if match else None
-
-# ─────────────────────────────────────────────────────────────────
-# 4. Run dynamic tests
-# ─────────────────────────────────────────────────────────────────
-def run_dynamic_tests(code: str, prompt: str) -> dict:
-    func_name = extract_function_name(code)
-    if not func_name:
-        return {"score": 0.0, "passed": 0, "total": 0, "details": [], "error": "No function definition found in code."}
-
-    test_cases = generate_test_cases(prompt, num_cases=random.randint(4, 6))
-    problem_type = detect_problem_type(prompt)
-    passed = 0
-    total  = len(test_cases)
-    details = []
-    local_env = {}
-
-    safe_globals = {"__builtins__": {"range": range, "len": len, "print": print,
-                                      "int": int, "str": str, "list": list, "bool": bool,
-                                      "set": set, "dict": dict, "tuple": tuple, "float": float,
-                                      "abs": abs, "max": max, "min": min,
-                                      "__import__": __import__,
-                                      "input": lambda *args: "5",  # integer-safe fallback
-                                      "map": map, "enumerate": enumerate, "zip": zip},
-                    "__name__": "dynamic_testing_suite"}
-    try:
-        exec(compile(code, "<string>", "exec"), safe_globals, local_env)
-        func = local_env.get(func_name)
-        if not func:
-            # Code compiled/evaluated flawlessly without exception but lacked a bound testable top-level function format.
-            passed = total
-            for _ in range(total):
-                details.append({
-                    "input": "OOP/Script Encapsulation",
-                    "expected": "Execution without errors",
-                    "got": "Execution without errors",
-                    "passed": True
-                })
-            return {"score": 1.0 if total > 0 else 0.0, "passed": passed, "total": total, "details": details}
-
-        for inp, expected in test_cases:
-            case_passed = False
-            try:
-                try:
-                    result = func(*inp) if isinstance(inp, tuple) else func(inp)
-                except Exception:
-                    try:
-                        result = func(inp)
-                    except Exception:
-                        result = func()
-                        expected = result
-                    
-                # UNIVERSAL EVALUATION LOGIC
-                if problem_type == "graph_traversal":
-                    is_match = (isinstance(result, (list, tuple)) and set(result) == set(expected) and len(result) == len(set(result)))
-                elif problem_type == "ml":
-                    if isinstance(result, (list, tuple)):
-                        is_match = len(result) > 0
-                    elif isinstance(result, (int, float)):
-                        is_match = result >= 0.5
-                    else:
-                        is_match = True
-                elif problem_type == "regression":
-                    is_match = isinstance(result, (int, float))
-                else:
-                    is_match = (expected is None) or (result == expected)
-                    if not is_match and isinstance(result, (list, tuple)) and isinstance(expected, (list, tuple)):
-                        try:
-                            is_match = set(result) == set(expected)
-                        except Exception:
-                            pass
-
-                if is_match:
-                    case_passed = True
-                    passed += 1
-            except Exception as e:
-                result = f"ERROR: {e}"
-
-            details.append({
-                "input":    str(inp)[:100],
-                "expected": str(expected)[:100],
-                "got":      str(result)[:100],
-                "passed":   case_passed,
-            })
-    except Exception as e:
-        return {"score": 0.0, "passed": 0, "total": total, "details": [], "error": f"Exec failed: {e}"}
-
-    score = round(passed / total, 4) if total > 0 else 0.0
-    return {"score": score, "passed": passed, "total": total, "details": details}
