@@ -17,5 +17,5 @@ COPY --chown=user . .
 # Expose exactly port 7860 as requested by HuggingFace Spaces
 EXPOSE 7860
 
-# Run the Flask app
-CMD ["python", "app.py"]
+# Run with gunicorn (production WSGI server)
+CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--timeout", "120", "--workers", "1", "app:app"]
